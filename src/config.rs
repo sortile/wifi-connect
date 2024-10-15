@@ -5,13 +5,32 @@ use std::ffi::OsStr;
 use std::net::Ipv4Addr;
 use std::path::PathBuf;
 use std::str::FromStr;
+use std::process::Command;
 
 const DEFAULT_GATEWAY: &str = "192.168.42.1";
 const DEFAULT_DHCP_RANGE: &str = "192.168.42.2,192.168.42.254";
-const DEFAULT_SSID: &str = "WiFi Connect";
 const DEFAULT_ACTIVITY_TIMEOUT: &str = "0";
-const DEFAULT_UI_DIRECTORY: &str = "ui";
+const DEFAULT_UI_DIRECTORY: &str = "wifi-connect-ui/dist";
 const DEFAULT_LISTENING_PORT: &str = "80";
+const DEFAULT_PASSPHRASE: &str = "sortileap";
+
+fn get_hostname() -> String {
+    Command::new("hostname")
+        .output()
+        .ok()
+        .and_then(|output| String::from_utf8(output.stdout).ok())
+        .map(|hostname| hostname.trim().to_string())
+        .unwrap_or_else(|| "Sortile-Device".to_string())
+}
+
+fn generate_default_ssid() -> String {
+    let hostname = get_hostname();
+    if hostname != "Sortile-Device" {
+        format!("{}-AP", hostname)
+    } else {
+        "Sortile-Device-AP".to_string()
+    }
+}
 
 #[derive(Clone)]
 pub struct Config {
@@ -45,7 +64,7 @@ pub fn get_config() -> Config {
                 .value_name("ssid")
                 .help(&format!(
                     "SSID of the captive portal WiFi network (default: {})",
-                    DEFAULT_SSID
+                    generate_default_ssid()
                 ))
                 .takes_value(true),
         )
@@ -54,7 +73,10 @@ pub fn get_config() -> Config {
                 .short("p")
                 .long("portal-passphrase")
                 .value_name("passphrase")
-                .help("WPA2 Passphrase of the captive portal WiFi network (default: none)")
+                .help(&format!(
+                    "WPA2 Passphrase of the captive portal WiFi network (default: {})",
+                    DEFAULT_PASSPHRASE
+                ))
                 .takes_value(true),
         )
         .arg(
@@ -117,12 +139,12 @@ pub fn get_config() -> Config {
     );
 
     let ssid: String = matches.value_of("portal-ssid").map_or_else(
-        || env::var("PORTAL_SSID").unwrap_or_else(|_| DEFAULT_SSID.to_string()),
+        || env::var("PORTAL_SSID").unwrap_or_else(|_| generate_default_ssid()),
         String::from,
     );
 
     let passphrase: Option<String> = matches.value_of("portal-passphrase").map_or_else(
-        || env::var("PORTAL_PASSPHRASE").ok(),
+        || env::var("PORTAL_PASSPHRASE").ok().or(Some(DEFAULT_PASSPHRASE.to_string())),
         |v| Some(v.to_string()),
     );
 

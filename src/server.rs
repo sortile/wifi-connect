@@ -169,6 +169,7 @@ pub fn start_server(
 
     let address = format!("{}:{}", gateway_clone, listening_port);
 
+    info!("Serving UI from directory: {:?}", ui_directory);
     info!("Starting HTTP server on {}", &address);
 
     if let Err(e) = Iron::new(chain).http(&address) {
